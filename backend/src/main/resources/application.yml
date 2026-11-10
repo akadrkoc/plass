@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: plass
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/plass}
+    username: ${DB_USERNAME:plass}
+    password: ${DB_PASSWORD:plass}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate          # schema is owned by Flyway, Hibernate only checks it
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        default_batch_fetch_size: 50  # load lazy associations in batches instead of one query per row
+        order_updates: true           # update rows in primary-key order -> consistent lock order, fewer deadlocks
+  flyway:
+    enabled: true
+  mvc:
+    problemdetails:
+      enabled: true               # RFC 9457 error bodies for framework errors too
+
+app:
+  jwt:
+    # Override in every real environment: JWT_SECRET must be at least 32 bytes.
+    secret: ${JWT_SECRET:dev-only-secret-change-me-0123456789abcdef}
+    ttl: 8h
+    issuer: plass
+  booking:
+    hold-duration: 10m            # how long selected seats stay reserved before payment
+    max-seats-per-booking: 6
+    cancellation-cutoff: 24h      # confirmed tickets can be cancelled until 24h before the event
+    expiry-check-interval-ms: 30000
+  seed:
+    enabled: ${SEED_DEMO_DATA:true}
+
+server:
+  forward-headers-strategy: framework   # honour X-Forwarded-* headers when running behind nginx
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

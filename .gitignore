@@ -1,0 +1,16 @@
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
+# Logs
+*.log
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+
+# Private notes (not for the public repo)
+MULAKAT_REHBERI.md
