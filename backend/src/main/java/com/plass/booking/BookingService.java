@@ -94,11 +94,18 @@ public class BookingService {
         return BookingResponse.from(booking, true);
     }
 
-    /** Step 2 of checkout: charge the (simulated) payment provider and confirm the seats. */
+    /**
+     * Step 2 of checkout: charge the (simulated) payment provider and confirm the seats.
+     * <p>
+     * The booking row is locked first, so two simultaneous "Pay" clicks cannot both see PENDING and
+     * both charge the card: the second request waits, then finds the booking CONFIRMED and gets 409.
+     */
     @Transactional
     public BookingResponse pay(Long userId, Long bookingId) {
         Instant now = Instant.now(clock);
-        Booking booking = findOwnedBooking(userId, bookingId);
+        Booking booking = bookingRepository.findByIdForUpdate(bookingId)
+                .filter(found -> found.isOwnedBy(userId))
+                .orElseThrow(() -> ApiException.notFound("Booking", bookingId));
         if (booking.getStatus() != BookingStatus.PENDING) {
             throw ApiException.conflict("BOOKING_NOT_PENDING", "This booking is not waiting for payment");
         }

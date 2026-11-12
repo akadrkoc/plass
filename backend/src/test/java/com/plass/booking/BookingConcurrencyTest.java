@@ -9,18 +9,26 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import com.plass.common.ApiException;
 import com.plass.event.Event;
 import com.plass.event.SeatStatus;
+import com.plass.payment.PaymentGateway;
 import com.plass.support.IntegrationTest;
 import com.plass.user.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
- * The key guarantee of the system: a seat can never be sold twice, even when many people
- * click "Reserve" on the same seat at exactly the same moment.
+ * The key guarantees of the system: a seat can never be sold twice, even when many people
+ * click "Reserve" on the same seat at exactly the same moment, and a booking is never charged twice,
+ * even when "Pay" is clicked several times at once.
  */
 class BookingConcurrencyTest extends IntegrationTest {
 
@@ -28,6 +36,9 @@ class BookingConcurrencyTest extends IntegrationTest {
 
     @Autowired
     private BookingService bookingService;
+
+    @MockitoSpyBean
+    private PaymentGateway paymentGateway;
 
     @Test
     void onlyOneOfManySimultaneousRequestsGetsTheSeat() throws Exception {
@@ -60,6 +71,35 @@ class BookingConcurrencyTest extends IntegrationTest {
         }
 
         assertThat(runAtTheSameTime(tasks)).containsOnly(true);
+    }
+
+    @Test
+    void simultaneousPayClicksChargeTheCustomerOnlyOnce() throws Exception {
+        Event event = data.upcomingEvent();
+        User user = data.user();
+        BookingResponse booking = bookingService.holdSeats(user.getId(),
+                new HoldSeatsRequest(event.getId(), data.seatIds(event, "A1", "A2")));
+
+        List<Callable<String>> clicks = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            clicks.add(() -> tryToPay(user, booking.id()));
+        }
+
+        assertThat(runAtTheSameTime(clicks))
+                .containsOnlyOnce("PAID")
+                .filteredOn(result -> !result.equals("PAID"))
+                .containsOnly("BOOKING_NOT_PENDING");
+        verify(paymentGateway, times(1)).charge(eq(booking.reference()), any());
+    }
+
+    private String tryToPay(User user, Long bookingId) {
+        try {
+            bookingService.pay(user.getId(), bookingId);
+            return "PAID";
+        }
+        catch (ApiException ex) {
+            return ex.getCode();
+        }
     }
 
     private boolean tryToHold(User user, Event event, List<Long> seatIds) {
