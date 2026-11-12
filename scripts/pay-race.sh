@@ -12,6 +12,16 @@ PARALLEL=${PARALLEL:-5}
 
 json() { python3 -c "import sys, json; d = json.load(sys.stdin); print($1)"; }
 
+# The backend needs ~20 s to start after "docker compose up", so wait until the API answers.
+printf "Waiting for the API at %s" "$BASE"
+for _ in $(seq 1 60); do
+  curl -sf "$BASE/api/events" >/dev/null 2>&1 && break
+  printf "."
+  sleep 2
+done
+echo
+curl -sf "$BASE/api/events" >/dev/null || { echo "API is not reachable. Is the app running?"; exit 1; }
+
 TOKEN=$(curl -sf -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' \
   -d '{"email":"demo@plass.dev","password":"Demo1234!"}' | json 'd["token"]')
 
