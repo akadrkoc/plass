@@ -1,0 +1,254 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens.
+ * Paper and plum ink, velvet crimson for actions, and three seat-tier colours taken
+ * from a theatre house plan: brass (VIP), teal (Premium), slate (Standard).
+ */
+@theme {
+  --font-display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --color-paper: #f3f1f6;
+  --color-card: #ffffff;
+  --color-ink: #2a1838;
+  --color-ink-soft: #5c4f68;
+  --color-line: #ddd6e4;
+  --color-curtain: #8e1b3a;
+  --color-curtain-dark: #6c1330;
+  --color-brass: #b5832a;
+  --color-brass-light: #e9c98a;
+  --color-teal: #1f7a78;
+  --color-slate: #5b6b8c;
+  --color-taken: #d2cbd9;
+  --color-ok: #2e7d4f;
+
+  /* Chart marks: validated for lightness band, chroma and colour-blind separation on white. */
+  --color-chart-sales: #a8325a;
+  --color-chart-sold: #6e4c8f;
+  --color-chart-held: #c08a2e;
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    line-height: 1.02;
+    letter-spacing: 0.005em;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-curtain);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    padding: 0.7rem 1.35rem;
+    font-weight: 600;
+    line-height: 1.1;
+    transition: background-color 120ms, color 120ms, border-color 120ms;
+    cursor: pointer;
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  .btn-primary {
+    background: var(--color-curtain);
+    color: #fff;
+  }
+  .btn-primary:not(:disabled):hover {
+    background: var(--color-curtain-dark);
+  }
+  /* Primary action on the dark plum panels. */
+  .btn-light {
+    background: var(--color-brass-light);
+    color: var(--color-ink);
+  }
+  .btn-light:not(:disabled):hover {
+    background: #fff;
+  }
+  .btn-light:disabled {
+    opacity: 1;
+    background: transparent;
+    color: rgb(255 255 255 / 0.55);
+    box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 0.3);
+  }
+  .btn-quiet {
+    border: 1.5px solid var(--color-line);
+    background: var(--color-card);
+    color: var(--color-ink);
+  }
+  .btn-quiet:not(:disabled):hover {
+    border-color: var(--color-ink-soft);
+  }
+  .field {
+    width: 100%;
+    border-radius: 10px;
+    border: 1.5px solid var(--color-line);
+    background: var(--color-card);
+    padding: 0.65rem 0.85rem;
+    color: var(--color-ink);
+  }
+  .field:focus {
+    border-color: var(--color-curtain);
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-curtain) 18%, transparent);
+  }
+  .field[aria-invalid="true"] {
+    border-color: var(--color-curtain);
+  }
+  .label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  /* The marquee board on the home page: a lit sign framed by bulbs. */
+  .marquee {
+    position: relative;
+    background: var(--color-ink);
+    color: #fff;
+    border-radius: 18px;
+    padding: 2.25rem 1.75rem;
+  }
+  .marquee::before,
+  .marquee::after {
+    content: "";
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    height: 8px;
+    background-image: radial-gradient(circle, var(--color-brass-light) 0 3px, transparent 3.5px);
+    background-size: 22px 8px;
+    background-repeat: repeat-x;
+    opacity: 0.9;
+  }
+  .marquee::before {
+    top: 10px;
+  }
+  .marquee::after {
+    bottom: 10px;
+  }
+
+  /* Seats on the seat map. Colour = price tier, fill = state. */
+  .seat {
+    --tier: var(--color-slate);
+    width: 1.65rem;
+    height: 1.6rem;
+    border-radius: 6px 6px 9px 9px;
+    border: 2px solid var(--tier);
+    background: var(--color-card);
+    color: var(--tier);
+    font-size: 0.64rem;
+    font-weight: 700;
+    line-height: 1;
+    transition: background-color 90ms, transform 90ms;
+  }
+  .seat[data-tier="VIP"] {
+    --tier: var(--color-brass);
+  }
+  .seat[data-tier="PREMIUM"] {
+    --tier: var(--color-teal);
+  }
+  .seat:not(:disabled):hover {
+    background: color-mix(in srgb, var(--tier) 16%, white);
+  }
+  .seat[aria-pressed="true"],
+  .seat[data-selected="true"] {
+    background: var(--color-curtain);
+    border-color: var(--color-curtain);
+    color: #fff;
+    transform: translateY(-2px);
+  }
+  .seat[aria-pressed="true"]:hover {
+    background: var(--color-curtain-dark);
+  }
+  .seat[data-status="BOOKED"] {
+    background: var(--color-taken);
+    border-color: var(--color-taken);
+    color: transparent;
+    cursor: not-allowed;
+  }
+  .seat[data-status="HELD"] {
+    background: repeating-linear-gradient(135deg, var(--color-taken) 0 3px, var(--color-card) 3px 6px);
+    border-color: var(--color-taken);
+    color: transparent;
+    cursor: not-allowed;
+  }
+
+  /* Printed ticket: main part + tear-off stub with notches on the fold. */
+  .ticket {
+    --notch: 13px;
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    background: var(--color-card);
+    border-radius: 16px;
+    border: 1.5px solid var(--color-line);
+  }
+  .ticket-stub {
+    position: relative;
+    border-left: 2px dashed var(--color-line);
+  }
+  .ticket-stub::before,
+  .ticket-stub::after {
+    content: "";
+    position: absolute;
+    left: calc(var(--notch) * -1 - 1px);
+    width: calc(var(--notch) * 2);
+    height: calc(var(--notch) * 2);
+    border-radius: 50%;
+    background: var(--color-paper);
+    border: 1.5px solid var(--color-line);
+  }
+  .ticket-stub::before {
+    top: calc(var(--notch) * -1 - 1.5px);
+    clip-path: inset(50% 0 0 0);
+  }
+  .ticket-stub::after {
+    bottom: calc(var(--notch) * -1 - 1.5px);
+    clip-path: inset(0 0 50% 0);
+  }
+  .stamp {
+    position: absolute;
+    right: 1.5rem;
+    top: 1.25rem;
+    transform: rotate(-9deg);
+    border: 2.5px solid currentColor;
+    border-radius: 8px;
+    padding: 0.15rem 0.6rem;
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    opacity: 0.85;
+  }
+}
