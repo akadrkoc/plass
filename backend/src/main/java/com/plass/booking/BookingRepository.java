@@ -6,8 +6,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,6 +20,15 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @EntityGraph(attributePaths = {"event", "event.venue"})
     Optional<Booking> findWithEventById(Long id);
+
+    /**
+     * Loads a booking with a row lock ({@code SELECT ... FOR UPDATE}). A second transaction asking for
+     * the same booking waits until the first one commits and then sees its result. Only the booking
+     * row is locked (no fetch joins), so payments for other bookings of the same event never wait.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from Booking b where b.id = :id")
+    Optional<Booking> findByIdForUpdate(@Param("id") Long id);
 
     List<Booking> findByUserIdAndEventIdAndStatus(Long userId, Long eventId, BookingStatus status);
 

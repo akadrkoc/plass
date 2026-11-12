@@ -145,7 +145,7 @@ class BookingServiceTest {
     void cannotPayAfterTheHoldExpired() {
         Booking booking = Booking.hold("PLS-TEST03", user(), event, List.of(seat("B2")),
                 NOW.minus(Duration.ofMinutes(11)), Duration.ofMinutes(10));
-        when(bookingRepository.findWithEventById(1L)).thenReturn(Optional.of(booking));
+        when(bookingRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(booking));
 
         assertThatThrownBy(() -> service.pay(USER_ID, 1L))
                 .isInstanceOfSatisfying(ApiException.class, ex -> assertThat(ex.getCode()).isEqualTo("HOLD_EXPIRED"));
@@ -165,7 +165,7 @@ class BookingServiceTest {
     void payingConfirmsTheBooking() {
         Booking booking = Booking.hold("PLS-TEST05", user(), event, List.of(seat("A4")), NOW.minusSeconds(30),
                 Duration.ofMinutes(10));
-        when(bookingRepository.findWithEventById(1L)).thenReturn(Optional.of(booking));
+        when(bookingRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(booking));
         when(paymentGateway.charge(anyString(), eq(new BigDecimal("300.00"))))
                 .thenReturn(PaymentResult.success("SIM-1"));
 
