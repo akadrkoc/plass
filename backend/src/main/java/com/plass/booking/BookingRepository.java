@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -34,9 +35,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     List<Booking> findByEventIdAndStatusIn(Long eventId, Collection<BookingStatus> statuses);
 
-    /** Oldest overdue holds first; processed in small batches by the expiry job. */
-    List<Booking> findTop100ByStatusAndExpiresAtLessThanEqualOrderByExpiresAtAsc(BookingStatus status,
-            Instant now);
+    /** Ids of the oldest overdue holds first; the expiry job then handles each one on its own. */
+    @Query("""
+            select b.id from Booking b
+            where b.status = com.plass.booking.BookingStatus.PENDING and b.expiresAt <= :now
+            order by b.expiresAt
+            """)
+    List<Long> findOverdueHoldIds(@Param("now") Instant now, Pageable page);
 
     boolean existsByReference(String reference);
 

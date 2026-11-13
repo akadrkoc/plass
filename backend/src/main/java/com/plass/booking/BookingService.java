@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import com.plass.common.ApiException;
@@ -17,6 +18,7 @@ import com.plass.payment.PaymentGateway;
 import com.plass.payment.PaymentResult;
 import com.plass.user.User;
 import com.plass.user.UserRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -154,13 +156,26 @@ public class BookingService {
         return BookingResponse.from(booking, isCancellable(booking, Instant.now(clock)));
     }
 
-    /** Called by {@link BookingExpiryJob}: releases seats of holds that were not paid in time. */
+    /** Used by {@link BookingExpiryJob}: the oldest holds that were not paid in time. */
+    @Transactional(readOnly = true)
+    public List<Long> findOverdueHoldIds(int limit) {
+        return bookingRepository.findOverdueHoldIds(Instant.now(clock), PageRequest.of(0, limit));
+    }
+
+    /**
+     * Used by {@link BookingExpiryJob}: expires one overdue hold and releases its seats, in its own
+     * transaction so a problem with one booking never rolls back the others.
+     * <p>
+     * The booking is locked and checked again, because it may have been paid or cancelled since its id
+     * was read. Returns false in that case.
+     */
     @Transactional
-    public int expireOverdueHolds() {
-        List<Booking> overdue = bookingRepository
-                .findTop100ByStatusAndExpiresAtLessThanEqualOrderByExpiresAtAsc(BookingStatus.PENDING, Instant.now(clock));
-        overdue.forEach(Booking::expire);
-        return overdue.size();
+    public boolean expireHold(Long bookingId) {
+        Instant now = Instant.now(clock);
+        Optional<Booking> overdue = bookingRepository.findByIdForUpdate(bookingId)
+                .filter(booking -> booking.isExpired(now));
+        overdue.ifPresent(Booking::expire);
+        return overdue.isPresent();
     }
 
     /** Used when an organiser cancels an event: every active booking is cancelled and refunded. */
