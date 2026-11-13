@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -57,6 +58,8 @@ class BookingServiceTest {
     private PaymentGateway paymentGateway;
     @Mock
     private BookingReferenceGenerator referenceGenerator;
+    @Mock
+    private ApplicationEventPublisher events;
 
     private BookingService service;
     private Venue venue;
@@ -67,7 +70,7 @@ class BookingServiceTest {
     void setUp() {
         BookingProperties properties = new BookingProperties(Duration.ofMinutes(10), 6, Duration.ofHours(24));
         service = new BookingService(bookingRepository, eventRepository, seatRepository, userRepository,
-                paymentGateway, referenceGenerator, properties, Clock.fixed(NOW, ZoneOffset.UTC));
+                paymentGateway, referenceGenerator, properties, events, Clock.fixed(NOW, ZoneOffset.UTC));
 
         venue = new Venue("Hall", "Oslo", "Street 1", 3, 4, NOW);
         event = eventStartingAt(NOW.plus(Duration.ofDays(5)));

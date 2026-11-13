@@ -16,8 +16,10 @@ import com.plass.event.Seat;
 import com.plass.event.SeatRepository;
 import com.plass.payment.PaymentGateway;
 import com.plass.payment.PaymentResult;
+import com.plass.payment.RefundRequested;
 import com.plass.user.User;
 import com.plass.user.UserRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -34,11 +36,13 @@ public class BookingService {
     private final PaymentGateway paymentGateway;
     private final BookingReferenceGenerator referenceGenerator;
     private final BookingProperties properties;
+    private final ApplicationEventPublisher events;
     private final Clock clock;
 
     public BookingService(BookingRepository bookingRepository, EventRepository eventRepository,
             SeatRepository seatRepository, UserRepository userRepository, PaymentGateway paymentGateway,
-            BookingReferenceGenerator referenceGenerator, BookingProperties properties, Clock clock) {
+            BookingReferenceGenerator referenceGenerator, BookingProperties properties,
+            ApplicationEventPublisher events, Clock clock) {
         this.bookingRepository = bookingRepository;
         this.eventRepository = eventRepository;
         this.seatRepository = seatRepository;
@@ -46,6 +50,7 @@ public class BookingService {
         this.paymentGateway = paymentGateway;
         this.referenceGenerator = referenceGenerator;
         this.properties = properties;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -134,11 +139,7 @@ public class BookingService {
                             + " hours before the event"
                     : "This booking can no longer be cancelled");
         }
-        boolean wasPaid = booking.getStatus() == BookingStatus.CONFIRMED;
-        booking.cancel(now);
-        if (wasPaid) {
-            paymentGateway.refund(booking.getPaymentReference(), booking.getTotalAmount());
-        }
+        cancelAndRefund(booking, now);
         return BookingResponse.from(booking, false);
     }
 
@@ -184,14 +185,22 @@ public class BookingService {
         Instant now = Instant.now(clock);
         List<Booking> active = bookingRepository.findByEventIdAndStatusIn(eventId,
                 List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED));
-        for (Booking booking : active) {
-            boolean wasPaid = booking.getStatus() == BookingStatus.CONFIRMED;
-            booking.cancel(now);
-            if (wasPaid) {
-                paymentGateway.refund(booking.getPaymentReference(), booking.getTotalAmount());
-            }
-        }
+        active.forEach(booking -> cancelAndRefund(booking, now));
         return active.size();
+    }
+
+    /**
+     * Cancels the booking and, if it was paid, asks for a refund. The refund itself is sent by
+     * {@link com.plass.payment.RefundListener} only after this transaction commits, so a cancellation
+     * that is rolled back never gives money back.
+     */
+    private void cancelAndRefund(Booking booking, Instant now) {
+        boolean wasPaid = booking.getStatus() == BookingStatus.CONFIRMED;
+        booking.cancel(now);
+        if (wasPaid) {
+            events.publishEvent(new RefundRequested(booking.getReference(), booking.getPaymentReference(),
+                    booking.getTotalAmount()));
+        }
     }
 
     boolean isCancellable(Booking booking, Instant now) {
