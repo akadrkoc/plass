@@ -21,6 +21,9 @@ class BookingFlowTest extends IntegrationTest {
     @Autowired
     private BookingService bookingService;
 
+    @Autowired
+    private BookingExpiryJob expiryJob;
+
     @Test
     void holdingAndPayingBooksTheSeats() {
         User user = data.user();
@@ -76,9 +79,24 @@ class BookingFlowTest extends IntegrationTest {
         assertThatThrownBy(() -> bookingService.pay(user.getId(), held.id()))
                 .isInstanceOfSatisfying(ApiException.class, ex -> assertThat(ex.getCode()).isEqualTo("HOLD_EXPIRED"));
 
-        assertThat(bookingService.expireOverdueHolds()).isGreaterThanOrEqualTo(1);
+        assertThat(expiryJob.expireOverdueHolds()).isGreaterThanOrEqualTo(1);
         assertThat(bookingService.findMyBooking(user.getId(), held.id()).status()).isEqualTo(BookingStatus.EXPIRED);
         assertThat(statusOf(event, "C3")).isEqualTo(SeatStatus.AVAILABLE);
+    }
+
+    @Test
+    void aHoldThatWasPaidAfterItsIdWasReadIsNotExpired() {
+        User user = data.user();
+        Event event = data.upcomingEvent();
+        BookingResponse held = hold(user, event, "A3");
+        bookingService.pay(user.getId(), held.id());
+
+        // The job read this id while the hold was still pending; by the time it gets to it, it is paid.
+        clock.advance(Duration.ofMinutes(11));
+
+        assertThat(bookingService.expireHold(held.id())).isFalse();
+        assertThat(bookingService.findMyBooking(user.getId(), held.id()).status()).isEqualTo(BookingStatus.CONFIRMED);
+        assertThat(statusOf(event, "A3")).isEqualTo(SeatStatus.BOOKED);
     }
 
     @Test
